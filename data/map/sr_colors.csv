@@ -1,0 +1,19 @@
+Serum group;Color
+mRNA-1273;grey
+D614G;#393B79
+B.1.351;#e7ba52
+B.1.526+E484K;#9ab370
+B.1.637;#456C8C
+B.1.617.2;#d18652
+P.1;#7b4173
+B.1.1.7;#637939
+C.37;#79c9c9
+3x Vax;#2C3539
+2x Vax;grey
+Beta conv;#e7ba52
+Delta conv;#d18652
+Gamma conv;#7b4173
+Alpha conv;#637939
+WT conv;#393B79
+2x Vax + Inf;#927a7a
+Inf + 2x Vax;#708faa
