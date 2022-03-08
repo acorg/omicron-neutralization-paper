@@ -11,8 +11,6 @@
 # Setup workspace
 rm(list = ls())
 library(Rmisc)
-library(labbook)
-library(patchwork)
 library(tidyverse)
 library(ggplot2)
 library(meantiter)
