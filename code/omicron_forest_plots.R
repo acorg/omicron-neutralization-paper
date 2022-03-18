@@ -3,7 +3,6 @@
 
 # Setup workspace
 rm(list = ls())
-library(labbook)
 library(patchwork)
 library(tidyverse)
 library(ggplot2)
