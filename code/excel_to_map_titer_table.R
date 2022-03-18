@@ -13,7 +13,7 @@ readxl::read_excel("./data/omicron_folddrops.xlsx") %>% mutate(
 ) -> forest_data
 
 # ----------------------------------------------- prepare data -----------------------------------------------
-forest_data <- forest_data %>% filter(shared_data =="y")
+forest_data <- forest_data %>% filter(manuscript_data =="y")
 
 forest_data$`Comparator antigen`[forest_data$`Comparator antigen` %in% c("Wu-1", "WT", "WA1", "Wu-1?")] <- "WT"
 forest_data$`Comparator antigen`[forest_data$`Comparator antigen` %in% c("D614G","B.1")] <- "D614G"

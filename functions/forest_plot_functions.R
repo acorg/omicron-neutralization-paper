@@ -67,11 +67,13 @@ factorise <- function(forest_data){
   
   
   # set levels of factors to be ordered by
-  forest_data$standardised_cell <- factor(forest_data$standardised_cell, levels = rev(c("Vero", "VeroE6","Vero-TMPRSS2", "VeroE6-TMPRSS2","VeroE6-ACE2/TMPRSS2", "293T-ACE2/VERO", "293T-ACE2/TMPRSS2", "293T-ACE2", "293T",
+  forest_data$standardised_cell <- factor(forest_data$standardised_cell, levels = rev(c("Vero","Vero76", "VeroE6","Vero-TMPRSS2", "VeroE6-TMPRSS2","VeroE6-ACE2/TMPRSS2", "293T-ACE2/VERO", "293T-ACE2/TMPRSS2", "293T-ACE2", "293T",
                                                                                         "H1299-ACE2", "HT1080/ACE2", "S-Fuse", "Caco-2", "Huh 7","MDA-MB-231-hACE2", "NA","Unknown")))
   
   forest_data$standardised_assay <- factor(forest_data$standardised_assay, levels = rev(c("Live-virus", "Pseudovirus", "Surrogate Virus")))
- 
+  
+  forest_data$standardised_pseudo <- factor(forest_data$standardised_pseudo, levels = rev(c("Live-virus", "Lentiviral","Lenti-CMV","VSV","HIV-1","Pseudovirus")))
+  
   forest_data$standardise_encounters <- as.character(forest_data$standardise_encounters)
   forest_data$standardise_encounters <- factor(forest_data$standardise_encounters, levels = c(rev(c("WT conv", "Alpha conv", "Beta conv", "Gamma conv", "Delta conv")),c("conv","vacc+inf", "inf+vacc", "3.0", "2.0")))
   
@@ -574,10 +576,10 @@ vertical_labelling_plot <- function(base_plot, data, hline_by, hline_positions, 
     outer_by <- hline_by[1]
     
     hline_by <- hline_by[2]
-    if(hline_by != "standardised_cell") {
+    if(!(hline_by %in% c("standardised_cell", "standardised_pseudo"))) {
       text_size <- text_size*0.7
     } else {
-     
+      
       text_size <- text_size*0.5
     }
     
@@ -726,7 +728,6 @@ do_forest_titer_drop <- function(forest_data, hline_by = "", row_label, show_mea
       
       
     } else {
-      hline_size <- hline_size/2
       res <- hdiv_to_data_multiple_groupings(forest_data, hline_by)
       forest_data <- res$data
       hline_positions <- res$hlines
@@ -742,7 +743,7 @@ do_forest_titer_drop <- function(forest_data, hline_by = "", row_label, show_mea
   xmax <- -2
   if("Delta" %in% unique(as.character(forest_data$`Comparator antigen`))) {
     xmin <- 8.5
-    xmax <- -4.5
+    xmax <- -5
   }
   if("Beta" %in% unique(as.character(forest_data$`Comparator antigen`))) {
     xmax <- -6
@@ -1253,10 +1254,58 @@ format_huxtable_cols_standard <- function(ht, single_grouping = TRUE, outer_grou
   return(ht)
 }
 
+# Huxtable format functions
+format_huxtable_cols_custom <- function(ht, single_grouping = TRUE, outer_group = "", antigens = c("WT", "Alpha", "Beta", "Gamma", "Delta","Omicron")) {
+  base <- 1
+  length_ags <- length(antigens)
+  if(!single_grouping) {
+    base <- 2
+    ht %>%
+      merge_cells(.,1:2,1) -> ht
+    ht[1,1] <- outer_group
+  }
+  
+  
+  ht %>%
+    merge_cells(.,1, (base+1):(base+length_ags)) %>% #GMTs of all ags
+    merge_cells(.,1, (base+length_ags+1):(base+length_ags+1+length_ags-2)) %>% #Omicron fold drop to all ags
+    merge_cells(.,1, (base+length_ags+1+length_ags-2+1):(base+length_ags+1+length_ags-2+1+length_ags-3)) %>%
+    merge_cells(.,1:2,base) -> ht
+  
+  
+  ht[1,base] <- "Serum Group"
+  ht[1,base+1] <- "GMT"
+  ht[1,(base+length_ags+1)] <- "Mean Omicron fold drop from"
+  ht[1,(base+length_ags+1+length_ags-2+1)] <- "Mean fold drop to WT"
+  ht[2,(base+1):(base+length_ags)] <- antigens
+  ht[2,(base+length_ags+1):(base+length_ags+1+length_ags-2)] <- antigens[1:(length_ags-1)]
+  ht[2,(base+length_ags+1+length_ags-2+1):(base+length_ags+1+length_ags-2+1+length_ags-3)] <- antigens[2:(length_ags-1)]
+  
+  ht %>% set_align(1, everywhere, "center") %>%
+    set_align(-1, 1, ".") %>%
+    set_all_padding(2) %>%
+    set_outer_padding(0.1) %>%
+    set_bold(row = 1, col = everywhere) %>%
+    set_bold(row = everywhere, col = 1) %>%
+    set_bottom_border(row = 1, col = everywhere) %>%
+    set_width(0.9) %>%
+    set_font_size(7) %>%
+    theme_article() %>%
+    set_right_border(everywhere, base, 1) %>%
+    set_right_border(everywhere, (base+length_ags), 1) %>%
+    set_right_border(everywhere, (base+length_ags+1+length_ags-2), 1) %>%
+    set_right_border_color(everywhere, base, "grey")  %>%
+    set_right_border_color(everywhere, (base+length_ags), "grey") %>%
+    set_right_border_color(everywhere, (base+length_ags+1+length_ags-2+1), "grey") -> ht
+  
+  return(ht)
+}
+
 format_huxtable_row <- function(ht, data, column_name, rev = FALSE) {
   
-  nr_rows <- table(data[,column_name])
+  nr_rows <- table(data[,column_name])#[unique(as.character(data[,column_name]))]
   nr_rows <- nr_rows[nr_rows > 0]
+  
   if(rev) {
     nr_rows <- rev(nr_rows)
   }

@@ -29,7 +29,7 @@ readxl::read_excel("./data/omicron_folddrops.xlsx") %>% mutate(
 ) -> forest_data
 
 # ----------------------------------------------- prepare data -----------------------------------------------
-forest_data <- forest_data %>% filter(shared_data =="y")
+forest_data <- forest_data %>% filter(manuscript_data =="y")
 
 forest_data <- forest_data[!(is.na(forest_data$`Titre drop`)),]
 
@@ -112,8 +112,12 @@ save_in_scaled_format(forest_data_encounter_vacc, which_plot = "titer_drop", to_
 forest_data_assay <- reorder_data(forest_data_encounter[order(forest_data_encounter$standardise_encounters, forest_data_encounter$standardised_assay),], rev = FALSE)
 save_in_scaled_format(forest_data_assay, which_plot = "titer_drop", to_save = "/omicron_assay_encounter", hline_by = c("standardise_encounters", "standardised_assay"))
 
-# split by encounter, order by cell
+# split by encounter, order by antigen type
+forest_data_antigen <- reorder_data(forest_data_encounter[order(forest_data_encounter$standardise_encounters, forest_data_encounter$standardised_pseudo),], rev = FALSE)
+save_in_scaled_format(forest_data_antigen, which_plot = "titer_drop", to_save = "/omicron_pseudotype_encounter", hline_by = c("standardise_encounters", "standardised_pseudo"))
 
+
+# split by encounter, order by cell
 forest_data_cell <- reorder_data(forest_data_encounter[order(forest_data_encounter$standardise_encounters, forest_data_encounter$standardised_cell),], rev = FALSE)
 save_in_scaled_format(forest_data_cell, which_plot = "titer_drop", to_save = "/omicron_cell_encounter", hline_by = c("standardise_encounters", "standardised_cell"), height = 14)
 
@@ -144,4 +148,7 @@ forest_data_titer_hAG_assay <- reorder_data(forest_data_titer_hAG_encounter[orde
 save_in_scaled_format(forest_data_titer_hAG_assay, which_plot = "not_titer_drop", to_save = "/omicron_assay_encounter_hAG", hline_by = c("standardise_encounters", "standardised_assay"))
 
 
+# split by encounter, order by pseudotype
+forest_data_titer_hAG_pseudo<- reorder_data(forest_data_titer_hAG_encounter[order(forest_data_titer_hAG_encounter$standardise_encounters, forest_data_titer_hAG_encounter$standardised_pseudo),], rev = FALSE)
+save_in_scaled_format(forest_data_titer_hAG_pseudo, which_plot = "not_titer_drop", to_save = "/omicron_pseudotype_encounter_hAG", hline_by = c("standardise_encounters", "standardised_pseudo"))
 
