@@ -11,9 +11,8 @@ source("./functions/landscape_remove_buttons.R")
 
 #---------------- Set up base plane map ---------------------
 map <- read.acmap("data/map/omicron_neut_conv_only_map.ace")
-sr_group_colors <- read.csv("./data/map/sr_colors.csv", stringsAsFactors = FALSE, sep = ";")
 
-plot_xlim <- c(-3, 4) + 1.5
+plot_xlim <- c(-2.5, 6) 
 plot_ylim <- c(-3, 4) - 0.4
 plot_zlim <- c(-1, 10)
 
@@ -33,8 +32,65 @@ lndscp_ylim <- range(agCoords(map)[,2])
 angle <- list(
   rotation = c(-1.4370, 0.0062, -0.5350),
   translation = c(0.0344, 0.0459, 0.1175),
-  zoom = 1.5646
+  zoom = 1.4646
 )
+
+# --------------------- Load full map and parameters -------------------------------------
+map_orig <-  read.acmap("data/map/omicron_neut_full_map.ace")
+
+sr_info <- unlist(lapply(srNames(map_orig), function(x) {
+  strsplit(x, "-")[[1]][1]
+}))
+
+# extract vaccine serum group titers
+map_vax <- subsetMap(map_orig, sera = srNames(map_orig)[!(grepl("conv", srGroups(map_orig)))])
+
+# add Omicron breakthrough sr group
+sr_levels <- c(levels(srGroups(map_vax)), "Omicron breakthrough")
+sr_groups <- as.character(srGroups(map_vax))
+sr_groups[grepl("\\+ Omicron", srNames(map_vax))] <- "Omicron breakthrough"
+
+srGroups(map_vax) <- factor(sr_groups, levels = sr_levels)
+
+# get titers to fit
+log_titers <- logtiterTable(map_vax)
+colbase <- colBases(map_vax)
+
+ag_coords <- unname(agCoords(map))
+
+sr_groups <- c(as.character(unique(srGroups(map_vax))))
+names(sr_groups) <- as.character(unique(srGroups(map_vax)))
+
+sr_group_colors <- data.frame("Serum.group" = c(as.character(srGroups(map_orig)), "Omicron breakthrough"),
+                              "Color" = c(srOutline(map_orig), agFill(map)[agNames(map) == "B.1.1.529"])) %>% unique()
+
+# Load parameters
+# # load parameters
+fit_parameters <- readRDS("./data/landscape_fit/multi_exposure_landscape_fits.rds")
+
+landscape_paramters <- lapply(names(sr_groups), function(x){
+  fit <- fit_parameters[[x]]
+  colb <- colbase[as.character(srGroups(map_vax)) == x]
+  log <- as.matrix(log_titers[,as.character(srGroups(map_vax)) == x])
+  
+  pars <- fit$par
+  slope <- pars["slope"]
+  
+  sr_cone_coords <- as.matrix(cbind(pars[grepl("x", names(pars))], pars[grepl("y", names(pars))]))
+  
+  list("sr_cone_coords" = sr_cone_coords, "colbases" = colb, "log_titers" = log, "slope" = slope)
+})
+names(landscape_paramters) <- names(sr_groups)
+
+
+# add WT conv with slope = 1 to landscape parameters
+wt_conv <- list()
+wt_conv_map <- subsetMap(map, sera = srNames(map)[srGroups(map) == "WT conv"])
+wt_conv$sr_cone_coords <- srCoords(wt_conv_map)
+wt_conv$colbases <- colBases(wt_conv_map)
+wt_conv$log_titers <- logtiterTable(wt_conv_map)
+wt_conv$slope <- 1
+landscape_paramters$`WT conv` <- wt_conv
 
 #----------------------------------  Functions to plot Ab landscapes -------------------------
 # serum group landscape
@@ -426,44 +482,20 @@ plot_sr_group_lndscp_gmt <- function(map, landscape_pars, sr_groups) {
 }
 
 #-------------------------------------------- Do the plots----------------
-
-# Load map with 2x Vax and 3x Vax tritations
-map_orig <-  read.acmap("data/map/omicron_neut_full_map.ace")
-
-sr_info <- unlist(lapply(srNames(map_orig), function(x) {
-  strsplit(x, "-")[[1]][1]
-}))
-
-# subset to only vaccine sera
-map_vax <- subsetMap(map_orig, sera = srNames(map_orig)[sr_info == "3x Vax" | sr_info == "2x Vax"])
-
-log_titers <- logtiterTable(map_vax)
-colbase <- colBases(map_vax)
-
-sr_groups <- c("2x Vax" = "2xVax", "3x Vax" = "3xVax")
-
-# load parameters
-landscape_paramters <- lapply(names(sr_groups), function(x){
-  fit <- readRDS(paste0("./data/landscape_fit/",sr_groups[x],"_sr_coord_group_slope_fit.rds"))
-  colb <- colbase[grepl(x, srNames(map_vax))]
-  log <- log_titers[,grepl(x, srNames(map_vax))]
-  
-  pars <- fit$par
-  slope <- pars["slope"]
-  
-  sr_cone_coords <- as.matrix(cbind(pars[grepl("x", names(pars))], pars[grepl("y", names(pars))]))
-  
-  list("sr_cone_coords" = sr_cone_coords, "colbases" = colb, "log_titers" = log, "slope" = slope)
-})
-names(landscape_paramters) <- names(sr_groups)
-
 #- plot GMT landscapes
-plot_sr_group_lndscp_gmt(map, landscape_paramters, names(sr_groups))
+plot_sr_group_lndscp_gmt(map, landscape_paramters, c("WT conv", "2x Vax", "3x Vax", "Omicron breakthrough"))
 
 # Plot single serum group landscapes
-# 2x vax
-plot_sr_group_lndscp(map, landscape_paramters$`2x Vax`$log_titers, landscape_paramters$`2x Vax`$sr_cone_coords, landscape_paramters$`2x Vax`$colbases, landscape_paramters$`2x Vax`$slope, "2x Vax")
+sg <- "WT conv"
+plot_sr_group_lndscp(map, landscape_paramters[[sg]]$log_titers, landscape_paramters[[sg]]$sr_cone_coords, landscape_paramters[[sg]]$colbases, landscape_paramters[[sg]]$slope, sg)
 
-# 3x vax
-plot_sr_group_lndscp(map, landscape_paramters$`3x Vax`$log_titers, landscape_paramters$`3x Vax`$sr_cone_coords, landscape_paramters$`3x Vax`$colbases, landscape_paramters$`3x Vax`$slope, "3x Vax")
+sg <- "2x Vax"
+plot_sr_group_lndscp(map, landscape_paramters[[sg]]$log_titers, landscape_paramters[[sg]]$sr_cone_coords, landscape_paramters[[sg]]$colbases, landscape_paramters[[sg]]$slope, sg)
+
+sg <- "3x Vax"
+plot_sr_group_lndscp(map, landscape_paramters[[sg]]$log_titers, landscape_paramters[[sg]]$sr_cone_coords, landscape_paramters[[sg]]$colbases, landscape_paramters[[sg]]$slope, sg)
+
+sg <- "Omicron breakthrough"
+plot_sr_group_lndscp(map, landscape_paramters[[sg]]$log_titers, landscape_paramters[[sg]]$sr_cone_coords, landscape_paramters[[sg]]$colbases, landscape_paramters[[sg]]$slope, sg)
+
 
