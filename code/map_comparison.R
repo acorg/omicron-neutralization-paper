@@ -9,7 +9,7 @@ library(Racmacs)
 
 # Read the map
 map_wilks <- read.acmap("data/map/wilks_et_al-map_ndsubset_no_outliers.ace")
-map <- read.acmap("./data/map/omicron_neut_full_map.ace")
+map <- read.acmap("./data/map/omicron_neut_conv_only_map.ace")
 
 # Get map plotting limits
 lims <- Racmacs:::mapPlotLims(map_wilks, sera = T)#, padding = 0.3)
