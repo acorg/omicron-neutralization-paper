@@ -15,6 +15,36 @@ library(tidyverse)
 library(ggplot2)
 library(meantiter)
 library(huxtable)
+
+# function to remove NA values from table
+clear_NA_from_table <- function(table) {
+  levels_encounter <- levels(table$standardise_encounters)
+  table <- as.data.frame(table)
+  for(col in colnames(table)) {
+    table[,col] <- gsub("NaN", "NA", table[,col])
+    table[,col] <- gsub("NA\\\n\\(NA\\; NA\\)", "", table[,col])
+    
+  }
+  
+  table$standardise_encounters <- factor(table$standardise_encounters, levels = levels_encounter)
+  return(table)
+}
+
+add_ba.1.1_stats <- function(table1, table2) {
+  
+  table1_rows <- match(interaction(table2$standardise_encounters, table2$OmicronVariant),
+                       interaction(table1$standardise_encounters, table1$OmicronVariant))
+  
+  table2_rows <- 1:length(table1_rows)
+  
+  for(col in c("mean_fold_drop", "gmt_hAG", "gmt_Omic"))
+    for(x in 1:length(table1_rows)) {
+      table1[[table1_rows[x], col]] <- paste0(table1[[table1_rows[x], col]], "\n\n", table2[[table2_rows[x], col]])
+    }
+  
+  return(table1)
+}
+
 #----------------------------------------------- set path to save -----------------------------------------------
 
 path_to_save <- paste0("./tables/")
@@ -33,7 +63,7 @@ readxl::read_excel("./data/omicron_folddrops.xlsx") %>% mutate(
 ) -> forest_data
 
 # ----------------------------------------------- prepare data -----------------------------------------------
-forest_data <- forest_data %>% filter(shared_data =="y")
+forest_data <- forest_data %>% filter(manuscript_data =="y")
 forest_data <- forest_data[!(is.na(forest_data$`Titre drop`)),]
 
 # factorise variables and check for NAs
@@ -155,14 +185,13 @@ mean_drop_df %>%
   unique()-> mean_data_encounter
 
 
-
 mean_data_encounter <- mean_data_encounter[order(mean_data_encounter$`Comparator antigen`),]
 mean_data_encounter %>%  select(!gmt_Omic) %>% 
   pivot_wider(names_from = c("Comparator antigen"), values_from = c("gmt_hAG", "mean_fold_drop", "mean_fold_drop_to_WT")) %>%
   select(!c("mean_fold_drop_to_WT_WT","mean_fold_drop_Omicron", "mean_fold_drop_to_WT_Omicron"))-> mean_encounters_wide
 
 mean_encounters_wide <- mean_encounters_wide[rev(order(mean_encounters_wide$standardise_encounters)),]
-mean_encounters_wide[is.na(mean_encounters_wide)] <- ""
+mean_encounters_wide <- clear_NA_from_table(mean_encounters_wide)
 
 # create pretty table
 ht <- hux(mean_encounters_wide) %>%
@@ -206,7 +235,6 @@ mean_drop_df %>% filter(standardise_encounters %in% c("2x Vax", "3x Vax")) %>%
          gmt_hAG, gmt_Omic) %>%
   unique()-> mean_data_vacc
 
-
 mean_data_vacc <- mean_data_vacc[order(mean_data_vacc$`Comparator antigen`),]
 mean_data_vacc %>%  select(!gmt_Omic) %>% 
   pivot_wider(names_from = c("Comparator antigen"), values_from = c("gmt_hAG", "mean_fold_drop", "mean_fold_drop_to_WT")) %>%
@@ -214,7 +242,9 @@ mean_data_vacc %>%  select(!gmt_Omic) %>%
 
 mean_vacc_wide <- mean_vacc_wide[rev(order(mean_vacc_wide$vaccine_manufacturer, mean_vacc_wide$standardise_encounters)),]
 mean_vacc_wide <- mean_vacc_wide[rev(order(mean_vacc_wide$vaccine_manufacturer)),]
-mean_vacc_wide[is.na(mean_vacc_wide)] <- ""
+
+mean_vacc_wide <- clear_NA_from_table(mean_vacc_wide)
+
 
 ht_vax <- hux(mean_vacc_wide) %>%
   insert_row(colnames(mean_vacc_wide))
@@ -230,58 +260,6 @@ if (TRUE) {
   print(my_doc, target =
           paste0(path_to_save,"/mean_encounters_vax.docx"))
 }
-
-# ------------------------- Mean by vaccine type (mRNA, other)
-
-mean_drop_df %>% filter(standardise_encounters %in% c("2x Vax", "3x Vax")) %>%
-  group_by(`Comparator antigen`, standardise_encounters, vacc_type) %>%
-  mutate(mean_fold_drop_m = round(2^CI(log_fold_change)[["mean"]],1), 
-         mean_fold_drop_lower = round(2^CI(log_fold_change)[["lower"]],1), 
-         mean_fold_drop_upper = round(2^CI(log_fold_change)[["upper"]],1), 
-         mean_fold_drop_to_WT_m = round(2^CI(na.omit(fold_drop_to_WT))[["mean"]],1), 
-         mean_fold_drop_to_WT_lower = round(2^CI(na.omit(fold_drop_to_WT))[["lower"]],1),
-         mean_fold_drop_to_WT_upper = round(2^CI(na.omit(fold_drop_to_WT))[["upper"]],1),
-         gmt = round(2^mean_titers(TitersHAg, method= "truncated_normal", dilution_stepsize = 0)$mean*10),
-         gmt_lower = round(2^mean_titers(TitersHAg, method= "truncated_normal", dilution_stepsize = 0)$mean_lower*10),
-         gmt_upper = round(2^mean_titers(TitersHAg, method= "truncated_normal", dilution_stepsize = 0)$mean_upper*10),
-         gmt_o = round(2^mean_titers(TitersOmicron, method= "truncated_normal", dilution_stepsize = 0)$mean*10),
-         gmt_lower_o = round(2^mean_titers(TitersOmicron, method= "truncated_normal", dilution_stepsize = 0)$mean_lower*10),
-         gmt_upper_o = round(2^mean_titers(TitersOmicron, method= "truncated_normal", dilution_stepsize = 0)$mean_upper*10),
-         mean_fold_drop = paste0(mean_fold_drop_m, "\n(", mean_fold_drop_lower, "; ",mean_fold_drop_upper,")"),
-         mean_fold_drop_to_WT = paste0(mean_fold_drop_to_WT_m, "\n(", mean_fold_drop_to_WT_lower, "; ",mean_fold_drop_to_WT_upper,")"),
-         gmt_hAG = paste0(gmt, "\n(", gmt_lower, "; ", gmt_upper, ")"),
-         gmt_Omic = paste0(gmt_o, "\n(", gmt_lower_o, "; ", gmt_upper_o, ")")) %>%
-  select(vacc_type, standardise_encounters,`Comparator antigen`,
-         mean_fold_drop, mean_fold_drop_to_WT,
-         gmt_hAG, gmt_Omic) %>%
-  unique()-> mean_data_vacc
-
-
-mean_data_vacc <- mean_data_vacc[order(mean_data_vacc$`Comparator antigen`),]
-mean_data_vacc %>%  select(!gmt_Omic) %>% 
-  pivot_wider(names_from = c("Comparator antigen"), values_from = c("gmt_hAG", "mean_fold_drop", "mean_fold_drop_to_WT")) %>%
-  select(!c("mean_fold_drop_to_WT_WT","mean_fold_drop_Omicron", "mean_fold_drop_to_WT_Omicron"))-> mean_vacc_wide
-
-mean_vacc_wide <- mean_vacc_wide[rev(order(mean_vacc_wide$standardise_encounters)),]
-mean_vacc_wide <- mean_vacc_wide[rev(order(mean_vacc_wide$vacc_type)),]
-mean_vacc_wide[is.na(mean_vacc_wide)] <- ""
-
-ht_vax <- hux(mean_vacc_wide) %>%
-  insert_row(colnames(mean_vacc_wide))
-
-ht_vax <- format_huxtable_cols_standard(ht_vax, single_grouping = FALSE, outer_group = "Vaccine")
-ht_vax <- format_huxtable_row(ht_vax, data = mean_vacc_wide, column_name = "vacc_type", rev = TRUE)
-
-ft_vax <- as_flextable(ht_vax)
-if (TRUE) {
-  my_doc <- officer::read_docx()
-  my_doc <- flextable::body_add_flextable(
-    my_doc, ft_vax)
-  print(my_doc, target =
-          paste0(path_to_save,"/mean_encounters_vax_type.docx"))
-}
-
-
 
 #-------------------- Mean by assay
 mean_drop_df %>% 
@@ -307,19 +285,20 @@ mean_drop_df %>%
          gmt_hAG, gmt_Omic) %>%
   unique()-> mean_data_assay
 
+
 mean_data_assay <- mean_data_assay[order(mean_data_assay$`Comparator antigen`),]
 mean_data_assay %>%  select(!gmt_Omic) %>% 
   pivot_wider(names_from = c("Comparator antigen"), values_from = c("gmt_hAG", "mean_fold_drop", "mean_fold_drop_to_WT")) %>%
   select(!c("mean_fold_drop_to_WT_WT","mean_fold_drop_Omicron", "mean_fold_drop_to_WT_Omicron"))-> mean_assay_wide
 
 mean_assay_wide <- mean_assay_wide[rev(order(mean_assay_wide$standardise_encounters, mean_assay_wide$standardised_assay)),]
-mean_assay_wide[is.na(mean_assay_wide)] <- ""
+mean_assay_wide <- clear_NA_from_table(mean_assay_wide)
 
 ht_assay <- hux(mean_assay_wide) %>%
   insert_row(colnames(mean_assay_wide))
 
 ht_assay <- format_huxtable_cols_standard(ht_assay, single_grouping = FALSE, outer_group = "Serum Group")
-ht_assay[1,2] <- "Assay"
+ht_assay[1,2] <- "Antigen type"
 ht_assay <- format_huxtable_row(ht_assay, data = mean_assay_wide, column_name = "standardise_encounters", rev = TRUE)
 
 ft_assay <- as_flextable(ht_assay)
@@ -330,3 +309,163 @@ if (TRUE) {
   print(my_doc, target =
           paste0(path_to_save,"/mean_encounters_assay.docx"))
 }
+
+#-------------------- Mean by pseudovirus type
+mean_drop_df %>% 
+  filter(`Comparator antigen` %in% c("WT", "Delta", "Omicron")) %>%
+  group_by(`Comparator antigen`, standardise_encounters, standardised_pseudo) %>%
+  mutate(mean_fold_drop_m = round(2^CI(log_fold_change)[["mean"]],1), 
+         mean_fold_drop_lower = round(2^CI(log_fold_change)[["lower"]],1), 
+         mean_fold_drop_upper = round(2^CI(log_fold_change)[["upper"]],1), 
+         mean_fold_drop_to_WT_m = round(2^CI(na.omit(fold_drop_to_WT))[["mean"]],1), 
+         mean_fold_drop_to_WT_lower = round(2^CI(na.omit(fold_drop_to_WT))[["lower"]],1),
+         mean_fold_drop_to_WT_upper = round(2^CI(na.omit(fold_drop_to_WT))[["upper"]],1),
+         gmt = round(2^mean_titers(TitersHAg, method= "truncated_normal", dilution_stepsize = 0)$mean*10),
+         gmt_lower = round(2^mean_titers(TitersHAg, method= "truncated_normal", dilution_stepsize = 0)$mean_lower*10),
+         gmt_upper = round(2^mean_titers(TitersHAg, method= "truncated_normal", dilution_stepsize = 0)$mean_upper*10),
+         gmt_o = round(2^mean_titers(TitersOmicron, method= "truncated_normal", dilution_stepsize = 0)$mean*10),
+         gmt_lower_o = round(2^mean_titers(TitersOmicron, method= "truncated_normal", dilution_stepsize = 0)$mean_lower*10),
+         gmt_upper_o = round(2^mean_titers(TitersOmicron, method= "truncated_normal", dilution_stepsize = 0)$mean_upper*10),
+         mean_fold_drop = paste0(mean_fold_drop_m, "\n(", mean_fold_drop_lower, "; ",mean_fold_drop_upper,")"),
+         mean_fold_drop_to_WT = paste0(mean_fold_drop_to_WT_m, "\n(", mean_fold_drop_to_WT_lower, "; ",mean_fold_drop_to_WT_upper,")"),
+         gmt_hAG = paste0(gmt, "\n(", gmt_lower, "; ", gmt_upper, ")"),
+         gmt_Omic = paste0(gmt_o, "\n(", gmt_lower_o, "; ", gmt_upper_o, ")")) %>%
+  select(standardise_encounters, standardised_pseudo, `Comparator antigen`,
+         mean_fold_drop, mean_fold_drop_to_WT,
+         gmt_hAG, gmt_Omic) %>%
+  unique()-> mean_data_pseudo
+
+mean_data_pseudo <- mean_data_pseudo[order(mean_data_pseudo$`Comparator antigen`),]
+mean_data_pseudo %>%  select(!gmt_Omic) %>% 
+  pivot_wider(names_from = c("Comparator antigen"), values_from = c("gmt_hAG", "mean_fold_drop", "mean_fold_drop_to_WT")) %>%
+  select(!c("mean_fold_drop_to_WT_WT","mean_fold_drop_Omicron", "mean_fold_drop_to_WT_Omicron"))-> mean_pseudo_wide
+
+mean_pseudo_wide <- mean_pseudo_wide[rev(order(mean_pseudo_wide$standardise_encounters, mean_pseudo_wide$standardised_pseudo)),]
+mean_pseudo_wide <- clear_NA_from_table(mean_pseudo_wide)
+
+mean_pseudo_wide[is.na(mean_pseudo_wide)] <- ""
+ht_pseudo <- hux(mean_pseudo_wide) %>%
+  insert_row(colnames(mean_pseudo_wide))
+
+ht_pseudo <- format_huxtable_cols_custom(ht_pseudo, single_grouping = FALSE, outer_group = "Serum Group", antigens = c("WT", "Delta", "Omicron"))
+ht_pseudo[1,2] <- "Antigen type"
+ht_pseudo <- format_huxtable_row(ht_pseudo, data = mean_pseudo_wide, column_name = "standardise_encounters", rev = TRUE)
+
+ft_pseudo <- as_flextable(ht_pseudo)
+if (TRUE) {
+  my_doc <- officer::read_docx()
+  my_doc <- flextable::body_add_flextable(
+    my_doc, ft_pseudo)
+  print(my_doc, target =
+          paste0(path_to_save,"/mean_encounters_pseudo.docx"))
+}
+
+
+#---------------------- BA.1 BA.1.1 comparison
+# look only at WT, once all and then in studies that titrated both
+ba1_ba11_studies <- Reduce(intersect, list(mean_drop_df %>% filter(OmicronVariant == "BA.1") %>% pull(Study),
+                                     mean_drop_df %>% filter(OmicronVariant == "BA.1+R346K") %>% pull(Study)))
+mean_drop_df %>%
+  filter(`Comparator antigen`=="WT") %>%
+  group_by(standardise_encounters, OmicronVariant) %>%
+  mutate(mean_fold_drop_m = round(2^CI(log_fold_change)[["mean"]],1), 
+         mean_fold_drop_lower = round(2^CI(log_fold_change)[["lower"]],1), 
+         mean_fold_drop_upper = round(2^CI(log_fold_change)[["upper"]],1), 
+         mean_fold_drop_to_WT_m = round(2^CI(na.omit(fold_drop_to_WT))[["mean"]],1), 
+         mean_fold_drop_to_WT_lower = round(2^CI(na.omit(fold_drop_to_WT))[["lower"]],1),
+         mean_fold_drop_to_WT_upper = round(2^CI(na.omit(fold_drop_to_WT))[["upper"]],1),
+         n = length(Study),
+         gmt = round(2^mean_titers(TitersHAg, method= "truncated_normal", dilution_stepsize = 0)$mean*10),
+         gmt_lower = round(2^mean_titers(TitersHAg, method= "truncated_normal", dilution_stepsize = 0)$mean_lower*10),
+         gmt_upper = round(2^mean_titers(TitersHAg, method= "truncated_normal", dilution_stepsize = 0)$mean_upper*10),
+         gmt_o = round(2^mean_titers(TitersOmicron, method= "truncated_normal", dilution_stepsize = 0)$mean*10),
+         gmt_lower_o = round(2^mean_titers(TitersOmicron, method= "truncated_normal", dilution_stepsize = 0)$mean_lower*10),
+         gmt_upper_o = round(2^mean_titers(TitersOmicron, method= "truncated_normal", dilution_stepsize = 0)$mean_upper*10),
+         mean_fold_drop = paste0(mean_fold_drop_m," (n=", n, ")\n(", mean_fold_drop_lower, "; ",mean_fold_drop_upper,")"),
+         mean_fold_drop_to_WT = paste0(mean_fold_drop_to_WT_m," (n=", n, ")\n(", mean_fold_drop_to_WT_lower, "; ",mean_fold_drop_to_WT_upper,")"),
+         gmt_hAG = paste0(gmt," (n=", n, ")\n(", gmt_lower, "; ", gmt_upper, ")"),
+         gmt_Omic = paste0(gmt_o, " (n=", n, ")\n(",gmt_lower_o, "; ", gmt_upper_o, ")")) %>%
+  select(standardise_encounters,`Comparator antigen`, OmicronVariant,
+         mean_fold_drop, gmt_hAG, gmt_Omic, n) %>%
+  unique()-> mean_data_omicron_variant
+
+mean_drop_df %>%
+  filter(`Comparator antigen`=="WT") %>%
+  filter(Study %in% ba1_ba11_studies) %>%
+  group_by(standardise_encounters, OmicronVariant) %>%
+  mutate(mean_fold_drop_m = round(2^CI(log_fold_change)[["mean"]],1), 
+         mean_fold_drop_lower = round(2^CI(log_fold_change)[["lower"]],1), 
+         mean_fold_drop_upper = round(2^CI(log_fold_change)[["upper"]],1), 
+         mean_fold_drop_to_WT_m = round(2^CI(na.omit(fold_drop_to_WT))[["mean"]],1), 
+         mean_fold_drop_to_WT_lower = round(2^CI(na.omit(fold_drop_to_WT))[["lower"]],1),
+         mean_fold_drop_to_WT_upper = round(2^CI(na.omit(fold_drop_to_WT))[["upper"]],1),
+         n = length(Study),
+         gmt = round(2^mean_titers(TitersHAg, method= "truncated_normal", dilution_stepsize = 0)$mean*10),
+         gmt_lower = round(2^mean_titers(TitersHAg, method= "truncated_normal", dilution_stepsize = 0)$mean_lower*10),
+         gmt_upper = round(2^mean_titers(TitersHAg, method= "truncated_normal", dilution_stepsize = 0)$mean_upper*10),
+         gmt_o = round(2^mean_titers(TitersOmicron, method= "truncated_normal", dilution_stepsize = 0)$mean*10),
+         gmt_lower_o = round(2^mean_titers(TitersOmicron, method= "truncated_normal", dilution_stepsize = 0)$mean_lower*10),
+         gmt_upper_o = round(2^mean_titers(TitersOmicron, method= "truncated_normal", dilution_stepsize = 0)$mean_upper*10),
+         mean_fold_drop = paste0(mean_fold_drop_m," (n=", n, ")\n(", mean_fold_drop_lower, "; ",mean_fold_drop_upper,")"),
+         mean_fold_drop_to_WT = paste0(mean_fold_drop_to_WT_m," (n=", n, ")\n(", mean_fold_drop_to_WT_lower, "; ",mean_fold_drop_to_WT_upper,")"),
+         gmt_hAG = paste0(gmt," (n=", n, ")\n(", gmt_lower, "; ", gmt_upper, ")"),
+         gmt_Omic = paste0(gmt_o, " (n=", n, ")\n(",gmt_lower_o, "; ", gmt_upper_o, ")")) %>%
+  select(standardise_encounters,`Comparator antigen`, OmicronVariant,
+         mean_fold_drop, gmt_hAG, gmt_Omic, n) %>%
+  unique()-> mean_data_omicron_studies
+
+
+mean_data_omicron <- add_ba.1.1_stats(mean_data_omicron_variant, mean_data_omicron_studies)
+
+mean_data_omicron %>% 
+  select(!n) %>%
+  select(!`Comparator antigen`) %>%
+  pivot_wider(names_from = c("OmicronVariant"), values_from = c("gmt_hAG","gmt_Omic", "mean_fold_drop")) -> mean_omicron_wide
+
+mean_omicron_wide <- mean_omicron_wide[rev(order(mean_omicron_wide$standardise_encounters)),] 
+mean_omicron_wide <- clear_NA_from_table(mean_omicron_wide)
+mean_omicron_wide[is.na(mean_omicron_wide)] <- ""
+
+ht <- hux(mean_omicron_wide) %>%
+  insert_row(colnames(mean_omicron_wide))
+
+ht %>%
+  merge_cells(.,1, 2:5) %>%
+  merge_cells(.,1, 6:7) %>%
+  merge_cells(.,1:2, 1) -> ht
+
+ht[1,2] <- "GMT"
+ht[1,6] <- "Mean Omicron fold drop from WT"
+ht[2, 2:7] <- c("WT BA.1", "WT BA.1+R346K", "BA.1", "BA.1+R346K", "BA.1", "BA.1+R346K")
+
+
+ht <- format_huxtable_row(ht, data = mean_omicron_wide, column_name = "standardise_encounters", rev = TRUE)
+ht[1,1] <- c("Serum Group")
+
+ht %>% set_align(1, everywhere, "center") %>%
+  set_align(-1, 1, ".") %>%
+  set_all_padding(2) %>% 
+  set_outer_padding(0.1) %>% 
+  set_bold(row = 1, col = everywhere) %>% 
+  set_bold(row = everywhere, col = 1) %>% 
+  set_bottom_border(row = 1, col = everywhere) %>% 
+  set_width(0.9) %>% 
+  set_font_size(7) %>% 
+  theme_article() %>%
+  set_right_border(everywhere, 1, 1) %>% 
+  set_right_border(everywhere, 5, 1) %>% 
+  set_right_border_color(everywhere, 1, "grey")  %>%
+  set_right_border_color(everywhere, 5, "grey")  -> ht
+
+ft_omi <- as_flextable(ht)
+if (TRUE) {
+  my_doc <- officer::read_docx()
+  my_doc <- flextable::body_add_flextable(
+    my_doc, ft_omi)
+  print(my_doc, target =
+          paste0(path_to_save,"/mean_encounters_omicron_sublineage.docx"))
+}
+
+
+  
+

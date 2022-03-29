@@ -92,7 +92,7 @@ readxl::read_excel("./data/omicron_folddrops.xlsx") %>% mutate(
 ) -> forest_data
 
 # ----------------------------------------------- prepare data -----------------------------------------------
-forest_data <- forest_data %>% filter(shared_data =="y")
+forest_data <- forest_data %>% filter(manuscript_data =="y")
 forest_data <- forest_data[!(is.na(forest_data$`Titre drop`)),]
 
 # factorise variables and check for NAs
