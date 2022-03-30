@@ -45,12 +45,12 @@ calc_fold_changes <- function(map, titer_table) {
       
       homologous_titers <- titer_table[homo_ag, sr]
       ag_titers <- titer_table[ag, sr]
-      titer_diff_est <- meantiter::mean_titer_diffs(
-        titers1 = homologous_titers,
-        titers2 = ag_titers,
-        method = "truncated_normal",
-        dilution_stepsize = 0
-      )
+      titer_diff_est <- data.frame(
+        mean_diff = mean(log2(as.numeric(ag_titers)), na.rm = T) - mean(log2(as.numeric(homologous_titers)), na.rm = T),
+        mean_diff_upper = NA,
+        mean_diff_lower = NA
+      ) 
+      
       
       # Populate results
       sr_group_results$ag[ag] <- agNames(map)[ag]
@@ -75,15 +75,16 @@ calc_fold_changes <- function(map, titer_table) {
   
   
   # Remove NA diffs
-   all_group_results %>% 
-     filter(
-       !is.na(diff)
-     ) -> all_group_results
+  all_group_results %>% 
+    filter(
+      !is.na(diff)
+    ) -> all_group_results
   
   return(all_group_results)
   
 }
 
+map<- read.acmap("./data/map/omicron_neut_full_map.ace")
 map_lv<- read.acmap("./data/map/omicron_neut_LV_map.ace")
 map_pv<- read.acmap("./data/map/omicron_neut_PV_map.ace")
 
@@ -110,8 +111,10 @@ all_groups_lv <- calc_fold_changes(map_lv, titerTable(map_lv)) %>%
   mutate("Antigen type" = "Live-virus")
 all_groups_pv <- calc_fold_changes(map_pv, titerTable(map_pv)) %>%
   mutate("Antigen type" = "Pseudovirus")
+all_groups <- calc_fold_changes(map, titerTable(map)) %>%
+  mutate("Antigen type" = "Combined")
 
-combo <- rbind(all_groups_lv, all_groups_pv)
+combo <- rbind(all_groups_lv, all_groups_pv, all_groups)
 
 # Cycle through serum groups
 foldchange <- \(x) {
@@ -129,7 +132,8 @@ do_fold_change_plot <- function(combo, sr_group_name) {
       sr_group == sr_group_name
     ) -> sr_group_results
   
-  temp_ag_levels <- unique(sr_group_results$ag[order(-sr_group_results$diff)])
+  combined_order <- sr_group_results %>% filter(`Antigen type` == "Combined")
+  temp_ag_levels <- unique(combined_order$ag[order(-combined_order$diff)])
   
   sr_group_results$x <- unlist(lapply(sr_group_results$ag, function(x) grep(x, temp_ag_levels)))
   
@@ -159,16 +163,19 @@ do_fold_change_plot <- function(combo, sr_group_name) {
       values = c(agFillValues(map_lv), srGroupValues(map_lv))
     ) + 
     scale_y_continuous(
-      breaks = 2:min(floor(combo$diff_lower), na.rm=T),
+      breaks = 3:min(floor(combo$diff), na.rm=T),
       labels = foldchange
     ) +
+    guides(colour = "none",
+            linetype = guide_legend("Antigen type"),
+            shape = guide_legend("Antigen type")) + 
     geom_hline(
       yintercept = 0,
       linetype = "dashed",
       color = "grey40"
     ) + 
     coord_cartesian(
-      ylim = c(min(floor(combo$diff_lower), na.rm=T), 2.5)
+      ylim = c(min(floor(combo$diff), na.rm=T), 3.5)
     ) +
     labs(
       x = "",
@@ -185,26 +192,35 @@ do_fold_change_plot <- function(combo, sr_group_name) {
         size = 8
       ),
       panel.grid.minor = element_blank(),
-      legend.position = "none"
+      legend.position = "right"
     ) -> gp
   
   gp <- gp + 
+    geom_text(data = sr_group_results %>% filter(`Antigen type` == "Combined"),
+              aes(
+                x = x,
+                y = 3.4,
+                label = paste0("C: ",foldchange(diff))
+              ),
+              size = 1.7,
+              color = "grey20"
+    ) +
     geom_text(data = sr_group_results %>% filter(`Antigen type` == "Live-virus"),
               aes(
                 x = x,
-                y = 2,
+                y = 2.8,
                 label = paste0("LV: ",foldchange(diff))
               ),
-              size = 2,
+              size = 1.7,
               color = "grey20"
     ) +
     geom_text(data = sr_group_results %>% filter(`Antigen type` == "Pseudovirus"),
               aes(
                 x = x,
-                y = 2-0.4,
+                y = 2.2,
                 label = paste0("PV: ",foldchange(diff))
               ),
-              size = 2,
+              size = 1.7,
               color = "grey20"
     )
   
@@ -218,7 +234,8 @@ do_ratio_plot <- function(combo, sr_group_name) {
     ) %>%
     mutate(fc = as.numeric(foldchange(diff)))-> sr_group_results
   
-  temp_ag_levels <- unique(sr_group_results$ag[order(-sr_group_results$diff)])
+  combined_order <- sr_group_results %>% filter(`Antigen type` == "Combined")
+  temp_ag_levels <- unique(combined_order$ag[order(-combined_order$diff)])
   
   sr_group_results$x <- unlist(lapply(sr_group_results$ag, function(x) grep(x, temp_ag_levels)))
   
@@ -251,8 +268,8 @@ do_ratio_plot <- function(combo, sr_group_name) {
     ) + 
     scale_y_continuous(
       labels = function(x) round(2^x,1),
-      breaks = seq(-2.5,2.5,0.5),
-      limits = c(-2.7,2.7)
+      breaks = seq(-5,5,1),
+      limits = c(-5.2,5.2)
     ) +
     geom_hline(
       yintercept = 0,
@@ -289,12 +306,15 @@ for (sr_group_name in unique(combo$sr_group)) {
   combo_plot <- (gp + theme(axis.title.x=element_blank(),
                                        axis.text.x=element_blank(),
                                        axis.ticks.x=element_blank())) /gp_diff +
-    plot_layout(heights = c(1.5, 1)) 
+    plot_layout(heights = c(2, 1)) 
 
   plots <- c(plots, list(combo_plot))
   
 }
 
-ggpubr::ggarrange(plotlist = plots, labels = c("A", "B", "C", "D", "E", "F", "G")) -> all_plots
+patchwork::wrap_plots(plots, guides = "collect", tag_levels = "new") + 
+  plot_annotation(tag_levels = list(c("A", " ", "B", " ","C", " ", "D", " ", "E", " ", "F", " ", "G"), " ")) + 
+  guide_area() -> all_plots
+                                                                                         
 ggsave("./figures/fold_change_from_homologous.png", plot = all_plots, width = 12, height = 14)
 

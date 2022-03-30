@@ -115,11 +115,11 @@ doplot_proc <- function(map, label) {
 pdf("figures/map/map_comparison.pdf", 7*1.4*1.1, 3*1.5*1.1)
 layout(matrix(c(1,2), 1, 2))
 doplot(map_wilks, "A")
-doplot_proc(procrustesMap(map_wilks, map), "B")
+doplot_proc(procrustesMap(map_wilks, map, scaling = F), "B")
 dev.off()
 
 png("figures/map/map_comparison.png", 7*1.4*1.1, 3*1.5*1.1, units = "in", res = 300)
 layout(matrix(c(1,2), 1, 2))
 doplot(map_wilks, "A")
-doplot_proc(procrustesMap(map_wilks, map), "B")
+doplot_proc(procrustesMap(map_wilks, map, scaling = F), "B")
 dev.off()

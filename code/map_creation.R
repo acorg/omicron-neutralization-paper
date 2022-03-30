@@ -66,12 +66,13 @@ make_map <- function(table, ag_colors_info, sr_colors_info, alignment_map) {
 # ---------------------------------- map creation
 
 # Map with all sera
-titer_table <- read.titerTable("./data/map/omicron_neut_titer_table.csv")
+titer_table <- read.titerTable("./data/titer_tables/omicron_neut_titer_table.csv")
 map_optim <- make_map(titer_table, ag_colors_info = ag_colors_info, sr_colors_info = sr_colors_info, alignment_map = alignment_map)
 save.acmap(map_optim, filename = "./data/map/omicron_neut_full_map.ace")
 
 
 # Map with only convalescent sera
+sr_info <- unlist(lapply(colnames(titer_table), function(x) str_split(x, "-")[[1]][1]))
 titer_table_only_conv <- titer_table[,grepl("conv", sr_info)]
 map_optim <- make_map(titer_table_only_conv, ag_colors_info = ag_colors_info, sr_colors_info = sr_colors_info, alignment_map = alignment_map)
 save.acmap(map_optim, filename = "./data/map/omicron_neut_conv_only_map.ace")

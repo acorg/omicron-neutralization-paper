@@ -51,7 +51,7 @@ forest_data <- pretty_plot_names(forest_data)
 forest_data <- forest_data %>% filter(!is.na(TitersHAg))
 
 # create serum name
-forest_data$serum_name <- paste0(forest_data$standardise_encounters,"-", forest_data$vaccine_manufacturer, "-",forest_data$Standardised_sera_names, "-",  forest_data$time,"-",forest_data$Sera_details_no_time, "-", forest_data$Study)
+forest_data$serum_name <- paste0(forest_data$standardise_encounters,"-", forest_data$vaccine_manufacturer, "-",forest_data$Standardised_sera_names, "-",  forest_data$time,"-",forest_data$`Sera details long`, "-", forest_data$Study)
 
 # ----------------------------------------------- Create titer tables -----------------------------------------------
 
@@ -79,4 +79,3 @@ omicron_table[is.na(omicron_table)] <- "*"
 
 rownames(omicron_table) <- ag_names[match(rownames(omicron_table), names(ag_names))]
 write.csv(x = omicron_table, file = "./data/titer_tables/omicron_neut_titer_table.csv")
-

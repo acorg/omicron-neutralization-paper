@@ -13,7 +13,8 @@ map_conv <- read.acmap("./data/map/omicron_neut_conv_only_map.ace")
 
 # Get map plotting limits
 lims <- Racmacs:::mapPlotLims(map_conv, sera = T, padding = 0.5)
-
+lims$xlim <- c(-3, 5)
+lims$ylim <- c(-3, 4)
 # Setup plotting function
 doplot <- function(map, label) {
   
@@ -31,9 +32,9 @@ doplot <- function(map, label) {
   label_adjustments["B.1.351",] <- c(0.5, 0.7)
   label_adjustments["P.1",] <- c(0.7, -0.6)
   label_adjustments["B.1.1.529",] <- c(-0.4, -0.6)
-  label_adjustments["B.1.1.7",] <- c(0, 1)
-  label_adjustments["D614G",] <- c(0, -0.5)
-  label_adjustments["WT",] <- c(-0.5, -0.2)
+  label_adjustments["B.1.1.7",] <- c(0, 0.7)
+  label_adjustments["D614G",] <- c(-0.2, -0.5)
+  label_adjustments["WT",] <- c(0.2, 0.5)
   label_adjustments["B.1.617.2",] <- c(0, -0.6)
  
   
@@ -66,7 +67,18 @@ doplot <- function(map, label) {
   
 }
 
+
 # Do the plots
+pdf("./figures/map/omicron_neut_conv_only.pdf", 3.5*1.4*1.1, 3*1.5*1.1)
+layout(matrix(c(1), 1,1))
+doplot(map_conv, label = "A")
+dev.off()
+
+png("./figures/map/omicron_neut_conv_only.png", 3.5*1.4*1.1, 3*1.5*1.1, units = "in", res = 300)
+layout(matrix(c(1), 1,1))
+doplot(map_conv, label = "A")
+dev.off()
+
 pdf("./figures/map/omicron_neut_full_gmt.pdf", 7*1.4*1.1, 3*1.5*1.1)
 layout(matrix(c(1,2), 1, 2))
 doplot(map_full, label = "A")

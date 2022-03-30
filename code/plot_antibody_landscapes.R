@@ -96,9 +96,14 @@ landscape_paramters$`WT conv` <- wt_conv
 # serum group landscape
 plot_sr_group_lndscp <- function(map, sr_group_logtiters, sr_group_cone_coords, sr_group_colbases, sr_group_cone_slopes, sr_group) {
   
+  # # adjust for reactivty bias
+  # sg_gmts <- rowMeans(sr_group_logtiters, na.rm = T)
+  # sample_means <- colMeans(sr_group_logtiters, na.rm = T)
+  # sr_group_logtiters <-sr_group_logtiters - (sample_means - sg_gmts)
   
   sr_group_mean_logtiters <- rowMeans(sr_group_logtiters, na.rm = T)
   sr_group_mean_logtiters[sr_group_mean_logtiters < plot_zlim[1]] <- plot_zlim[1]
+  
   # Set map subset
   map_subset <- map
   
@@ -297,8 +302,9 @@ plot_sr_group_lndscp_gmt <- function(map, landscape_pars, sr_groups) {
   
   sr_group <- sr_groups[1]
   
+  
   sr_group_mean_logtiters <- rowMeans(landscape_pars[[sr_group]]$log_titers, na.rm = T)
- sr_group_mean_logtiters[sr_group_mean_logtiters < plot_zlim[1]] <- plot_zlim[1]
+  sr_group_mean_logtiters[sr_group_mean_logtiters < plot_zlim[1]] <- plot_zlim[1]
   # Set map subset
   map_subset <- map
   
