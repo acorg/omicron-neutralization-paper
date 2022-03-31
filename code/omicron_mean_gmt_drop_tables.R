@@ -88,8 +88,8 @@ forest_data <- melt_variant_comparator(forest_data, "Gamma")
 forest_data <- melt_variant_comparator(forest_data, "Delta")
 
 # set titers below 10 to 5 (log2 of below 0 to -1)
-forest_data$Log2HAg[forest_data$Log2HAg < 0] <- -1
-forest_data$Log2Omi[forest_data$Log2Omi < 0] <- -1
+#forest_data$Log2HAg[forest_data$Log2HAg < 0] <- -1
+#forest_data$Log2Omi[forest_data$Log2Omi < 0] <- -1
 
 # add row long for plotting purposes
 forest_data["Row_long"] <- 1:nrow(forest_data)

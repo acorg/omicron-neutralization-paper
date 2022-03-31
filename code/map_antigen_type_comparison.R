@@ -12,6 +12,8 @@ lv_map_conv <- read.acmap("./data/map/omicron_neut_LV_conv_only_map.ace")
 # function for plotting
 # Get map plotting limits
 lims <- Racmacs:::mapPlotLims(conv_map, sera = T, padding = 0.5)
+lims$xlim <- c(-3, 5)
+lims$ylim <- c(-3, 4)
 
 # Setup plotting function
 doplot <- function(map, label, show_labels = T) {
@@ -29,7 +31,7 @@ doplot <- function(map, label, show_labels = T) {
     rownames(label_adjustments) <- agNames(map)
     label_adjustments["B.1.351",] <- c(0.5, 0.7)
     label_adjustments["P.1",] <- c(0.7, -0.6)
-    label_adjustments["B.1.1.529",] <- c(-0.4, -0.6)
+    label_adjustments["B.1.1.529",] <- c(-0.7, -0.6)
     label_adjustments["B.1.1.7",] <- c(0, 1)
     label_adjustments["D614G",] <- c(0, -0.5)
     label_adjustments["WT",] <- c(-0.5, -0.2)

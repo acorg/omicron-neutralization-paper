@@ -16,12 +16,13 @@ sr_colors_info <- read.csv("./data/map/sr_colors.csv", stringsAsFactors = FALSE,
 # ----------------------------------------------- read in data -----------------------------------------------
 readxl::read_excel("./data/omicron_folddrops.xlsx") %>% 
  filter(manuscript_data =="y") %>%
+  filter(standardised_pseudo != "HIV-1") %>%
   filter(!is.na(TitersHAg)) %>%
   factorise() %>%
   pretty_plot_names() -> forest_data
 
-forest_data$serum_name <- paste0(forest_data$standardise_encounters,"-", forest_data$vaccine_manufacturer, "-",forest_data$Standardised_sera_names, "-",  forest_data$time,"-",forest_data$Sera_details_no_time, "-", forest_data$Study)
-
+# create serum name
+forest_data$serum_name <- paste0(forest_data$standardise_encounters,"-", forest_data$vaccine_manufacturer, "-",forest_data$Standardised_sera_names, "-",  forest_data$time,"-",forest_data$`Sera details long`, "-", forest_data$Study)
 
 pseudotype_sr <- forest_data %>% filter(standardised_assay == "PV") %>% pull(serum_name)
 live_sr <- forest_data %>% filter(standardised_assay == "LV") %>% pull(serum_name)
@@ -43,10 +44,12 @@ save.acmap(lv_map, filename = "./data/map/omicron_neut_LV_map.ace")
 # Subset to only convalescent seraM
 pseudo_map_conv <- subsetMap(pseudo_map, sera = srNames(pseudo_map)[grepl("conv", srNames(pseudo_map))])
 pseudo_map_conv <- optimizeMap(pseudo_map_conv, number_of_dimensions = 2, number_of_optimizations = 500)
+dilutionStepsize(pseudo_map_conv) <- 0
 pseudo_map_conv <- realignMap(pseudo_map_conv, full_map)
 
 lv_map_conv <- subsetMap(lv_map, sera = srNames(lv_map)[grepl("conv", srNames(lv_map))])
 lv_map_conv <- optimizeMap(lv_map_conv, number_of_dimensions = 2, number_of_optimizations = 500)
+dilutionStepsize(lv_map_conv) <- 0
 lv_map_conv <- realignMap(lv_map_conv, full_map)
 
 save.acmap(pseudo_map_conv, filename = "./data/map/omicron_neut_PV_conv_only_map.ace")
