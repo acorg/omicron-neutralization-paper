@@ -46,9 +46,9 @@ calc_fold_changes <- function(map, titer_table) {
       homologous_titers <- titer_table[homo_ag, sr]
       ag_titers <- titer_table[ag, sr]
       titer_diff_est <- data.frame(
-        mean_diff = mean(log2(as.numeric(ag_titers)), na.rm = T) - mean(log2(as.numeric(homologous_titers)), na.rm = T),
-        mean_diff_upper = NA,
-        mean_diff_lower = NA
+        mean_diff = Rmisc::CI(na.omit(log2(as.numeric(ag_titers)) - log2(as.numeric(homologous_titers))))[["mean"]],
+        mean_diff_upper = Rmisc::CI(na.omit(log2(as.numeric(ag_titers))- log2(as.numeric(homologous_titers))))[["lower"]],
+        mean_diff_lower = Rmisc::CI(na.omit(log2(as.numeric(ag_titers))- log2(as.numeric(homologous_titers))))[["upper"]]
       ) 
       
       
@@ -113,9 +113,11 @@ all_groups_pv <- calc_fold_changes(map_pv, titerTable(map_pv)) %>%
   mutate("Antigen type" = "Pseudovirus")
 all_groups <- calc_fold_changes(map, titerTable(map)) %>%
   mutate("Antigen type" = "Combined")
+all_groups$diff_lower <- NA
+all_groups$diff_upper <- NA
 
 combo <- rbind(all_groups_lv, all_groups_pv, all_groups)
-
+combo[is.na(combo)] <- NA
 # Cycle through serum groups
 foldchange <- \(x) {
   
@@ -232,7 +234,8 @@ do_ratio_plot <- function(combo, sr_group_name) {
     filter(
       sr_group == sr_group_name
     ) %>%
-    mutate(fc = as.numeric(foldchange(diff)))-> sr_group_results
+    mutate(fc = as.numeric(foldchange(diff)),
+           fc = as.numeric(ifelse(fc < 0, fc, 1/fc)))-> sr_group_results
   
   combined_order <- sr_group_results %>% filter(`Antigen type` == "Combined")
   temp_ag_levels <- unique(combined_order$ag[order(-combined_order$diff)])
@@ -268,8 +271,8 @@ do_ratio_plot <- function(combo, sr_group_name) {
     ) + 
     scale_y_continuous(
       labels = function(x) round(2^x,1),
-      breaks = seq(-5,5,1),
-      limits = c(-5.2,5.2)
+      breaks = seq(-4,4,1),
+      limits = c(-4.2,4.2)
     ) +
     geom_hline(
       yintercept = 0,
@@ -278,7 +281,7 @@ do_ratio_plot <- function(combo, sr_group_name) {
     ) + 
     labs(
       x = "",
-      y = "Fold drop LV/PV"
+      y = "FD LV to PV"
     ) + 
     theme_bw() +
     theme(
@@ -315,6 +318,6 @@ for (sr_group_name in unique(combo$sr_group)) {
 patchwork::wrap_plots(plots, guides = "collect", tag_levels = "new") + 
   plot_annotation(tag_levels = list(c("A", " ", "B", " ","C", " ", "D", " ", "E", " ", "F", " ", "G"), " ")) + 
   guide_area() -> all_plots
-                                                                                         
+                    
 ggsave("./figures/fold_change_from_homologous.png", plot = all_plots, width = 12, height = 14)
 
